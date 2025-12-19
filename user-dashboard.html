@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Dashboard</title>
+<style>
+body{background:#0c0f1a;color:#eaeaea;font-family:system-ui;padding:20px;}
+.container{max-width:700px;margin:auto;background:#15182b;padding:25px;border-radius:15px;box-shadow:0 0 30px rgba(0,0,0,.5);}
+h2{text-align:center;color:#25D366;margin-bottom:20px;}
+input,select{width:100%;padding:12px;margin:8px 0;border-radius:10px;border:none;background:#1f2235;color:#fff;}
+button{width:100%;padding:14px;border:none;border-radius:12px;background:#25D366;color:#000;font-weight:bold;cursor:pointer;margin-top:12px;}
+.links{display:flex;justify-content:space-between;margin-top:15px;}
+.links a, .links button{color:#fff;text-decoration:none;font-weight:bold;}
+.logout{color:#7c5cff;cursor:pointer;text-decoration:underline;margin-top:10px;display:block;text-align:right;}
+#status{margin-top:12px;font-weight:bold;font-size:14px;opacity:.9;}
+</style>
+</head>
+<body>
+<script>
+if(!localStorage.getItem("token")) location.href="index.html";
+</script>
+
+<div class="container">
+<h2>Welcome to DevNullx Dashboard</h2>
+
+<select class="serviceSelect">
+<option value="">-- Select Bot Service --</option>
+<option value="Bot normal Deployment 1$">Bot normal Deployment 1$</option>
+<option value="Bot Files free 0$">Bot Files free 0$</option>
+<option value="heroku invite 2$">heroku invite 2$</option>
+<option value="BUG bot deployment 2$">BUG bot deployment 2$</option>
+<option value="Bot creation 10$">Bot creation 10$</option>
+</select>
+
+<input id="amount" placeholder="Amount KES">
+<button onclick="order()">Pay & Get Service</button>
+
+<div class="links">
+<button onclick="logout()">Logout</button>
+</div>
+
+<div id="status"></div>
+</div>
+
+<script>
+const serviceSelect=document.querySelector(".serviceSelect");
+const amountInput=document.getElementById("amount");
+
+serviceSelect.addEventListener("change",()=>{ 
+  const val=serviceSelect.value; 
+  if(!val){amountInput.value="";return;}
+  const match=val.match(/(\d+)\$/); 
+  if(match) amountInput.value=match[1]; 
+});
+
+async function order(){
+  const service=serviceSelect.value;
+  const amount=amountInput.value;
+  if(!service){alert("Select a service"); return;}
+  const res=await fetch("/api/dashboard/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({service,amount,token:localStorage.getItem("token")})});
+  const data=await res.json();
+  if(res.ok) document.getElementById("status").innerText=`Order placed: ${service}, KES ${amount}`;
+  else alert(data.message);
+}
+
+function logout(){localStorage.removeItem("token");location.href="index.html";}
+</script>
+</body>
+</html>

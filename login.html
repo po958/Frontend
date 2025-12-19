@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Auth & Dashboard</title>
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<style>
+body{font-family:system-ui;background:#0c0f1a;color:#eaeaea;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}
+.card{background:#15182b;padding:40px;border-radius:20px;width:360px;box-shadow:0 0 25px rgba(0,0,0,.6);}
+h2{text-align:center;color:#25D366;margin-bottom:25px;}
+input{width:100%;padding:12px;margin:10px 0;border:none;border-radius:12px;background:#1f2235;color:#fff;}
+button{width:100%;padding:14px;background:#25D366;border:none;border-radius:14px;font-weight:bold;cursor:pointer;margin-top:12px;}
+button:hover{opacity:.9;}
+.link{text-align:center;color:#7c5cff;cursor:pointer;margin-top:10px;display:block;}
+.forgot{text-align:right;font-size:13px;color:#25D366;cursor:pointer;margin-bottom:12px;}
+.hidden{display:none;}
+.popup{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#25D366;color:#000;padding:12px 20px;border-radius:12px;opacity:0;transition:.3s;z-index:9999;}
+.popup.error{background:#ff3c3c;color:#fff;}
+.popup.show{opacity:1;}
+.otp-box{display:flex;justify-content:space-between;}
+.otp-box input{width:40px;text-align:center;font-size:18px;padding:8px;}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h2 id="title">Login</h2>
+
+<div id="auth">
+<input id="username" placeholder="Username" class="hidden">
+<input id="email" placeholder="Email" class="hidden">
+<input id="phone" placeholder="Phone number">
+<input id="password" type="password" placeholder="Password">
+<input id="confirm" type="password" placeholder="Confirm password" class="hidden">
+
+<div class="g-recaptcha hidden" data-sitekey="YOUR_SITE_KEY" id="captchaBox"></div>
+
+<div class="forgot" id="forgotBtn">Forgot password?</div>
+<button id="submitBtn">Login</button>
+<div class="link" id="toggleBtn">Don't have an account? Register</div>
+</div>
+
+<div id="forgot" class="hidden">
+<input id="forgotPhone" placeholder="Enter phone number">
+<button id="sendOtpBtn">Send OTP</button>
+<div class="link" id="backLogin1">Back to login</div>
+</div>
+
+<div id="otp" class="hidden">
+<p style="text-align:center;color:#aaa;margin-bottom:14px;">Waiting for SMS code…</p>
+<div class="otp-box">
+<input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1">
+</div>
+<input id="newPass" type="password" placeholder="New password" style="margin-top:18px;">
+<button id="resetBtn">Reset password</button>
+<div class="link" id="backLogin2">Back to login</div>
+</div>
+
+</div>
+<div class="popup" id="popup"></div>
+
+<script>
+const popup=document.getElementById("popup");
+const showPopup=(msg,error=false)=>{popup.innerText=msg;popup.className="popup show"+(error?" error":"");setTimeout(()=>popup.className="popup",2500);}
+const title=document.getElementById("title");
+const username=document.getElementById("username");
+const email=document.getElementById("email");
+const phone=document.getElementById("phone");
+const password=document.getElementById("password");
+const confirm=document.getElementById("confirm");
+const captchaBox=document.getElementById("captchaBox");
+const forgotBtn=document.getElementById("forgotBtn");
+const submitBtn=document.getElementById("submitBtn");
+const toggleBtn=document.getElementById("toggleBtn");
+const auth=document.getElementById("auth");
+const forgot=document.getElementById("forgot");
+const otpDiv=document.getElementById("otp");
+const forgotPhone=document.getElementById("forgotPhone");
+const sendOtpBtn=document.getElementById("sendOtpBtn");
+const newPass=document.getElementById("newPass");
+const resetBtn=document.getElementById("resetBtn");
+const backLogin1=document.getElementById("backLogin1");
+const backLogin2=document.getElementById("backLogin2");
+
+let isLogin=true;
+let currentPhone="";
+let generatedOTP="";
+
+toggleBtn.onclick=()=>{
+  isLogin=!isLogin;
+  title.innerText=isLogin?"Login":"Register";
+  submitBtn.innerText=isLogin?"Login":"Register";
+  username.classList.toggle("hidden",isLogin);
+  email.classList.toggle("hidden",isLogin);
+  confirm.classList.toggle("hidden",isLogin);
+  captchaBox.classList.toggle("hidden",isLogin);
+  forgotBtn.style.display=isLogin?"block":"none";
+  toggleBtn.innerText=isLogin?"Don't have an account? Register":"Already have an account? Login";
+};
+
+submitBtn.onclick=async()=>{
+  if(isLogin){
+    if(!phone.value||!password.value){showPopup("Fill all fields",true);return;}
+    const res=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:phone.value,password:password.value})});
+    const data=await res.json();
+    if(res.ok){localStorage.setItem("token",data.token);location.href="user-dashboard.html";}
+    else showPopup(data.message,true);
+  }else{
+    if(!username.value||!email.value||!phone.value||!password.value||!confirm.value){showPopup("Fill all fields",true);return;}
+    if(password.value!==confirm.value){showPopup("Passwords do not match",true);return;}
+    if(!grecaptcha.getResponse()){showPopup("Verify captcha",true);return;}
+    const payload={username:username.value,email:email.value,phone:phone.value,password:password.value};
+    const res=await fetch("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(res.ok){showPopup("Registration successful!");username.value="";email.value="";phone.value="";password.value="";confirm.value="";grecaptcha.reset();}
+    else showPopup(data.message,true);
+  }
+};
+
+forgotBtn.onclick=()=>{auth.classList.add("hidden");forgot.classList.remove("hidden");title.innerText="Forgot Password";}
+sendOtpBtn.onclick=async()=>{
+  const ph=forgotPhone.value.trim();
+  if(!ph){showPopup("Enter phone",true);return;}
+  const res=await fetch("/api/auth/forgot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:ph})});
+  const data=await res.json();
+  if(res.ok){generatedOTP=data.otp;currentPhone=ph;forgot.classList.add("hidden");otpDiv.classList.remove("hidden");title.innerText="Enter OTP";}
+  else showPopup(data.message,true);
+};
+resetBtn.onclick=async()=>{
+  const entered=[...document.querySelectorAll(".otp-box input")].map(i=>i.value).join("");
+  if(entered!==generatedOTP){showPopup("Invalid OTP",true);return;}
+  if(!newPass.value){showPopup("Enter new password",true);return;}
+  const res=await fetch("/api/auth/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:currentPhone,password:newPass.value})});
+  const data=await res.json();
+  if(res.ok){showPopup("Password reset!");otpDiv.classList.add("hidden");auth.classList.remove("hidden");title.innerText="Login";}
+  else showPopup(data.message,true);
+};
+backLogin1.onclick=backLogin2.onclick=()=>{forgot.classList.add("hidden");otpDiv.classList.add("hidden");auth.classList.remove("hidden");title.innerText="Login";}
+</script>
+</body>
+</html>

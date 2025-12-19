@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+<style>
+body{font-family:system-ui;background:#0c0f1a;color:#fff;margin:0;padding:20px;}
+.container{max-width:1000px;margin:auto;background:#15182b;padding:30px;border-radius:15px;box-shadow:0 0 30px rgba(0,0,0,.5);}
+h2{text-align:center;color:#25D366;}
+.logout{text-align:right;color:#7c5cff;cursor:pointer;text-decoration:underline;margin-top:10px;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+table th,table td{border:1px solid #7c5cff;padding:10px;text-align:left;}
+button{padding:6px 12px;margin:2px;background:#25D366;border:none;border-radius:10px;cursor:pointer;}
+button:hover{opacity:.9;}
+.popup{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#25D366;color:#000;padding:12px 20px;border-radius:10px;opacity:0;transition:.3s;z-index:9999;}
+.popup.error{background:#ff3c3c;color:#fff;}
+.popup.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>Admin Dashboard</h2>
+<span class="logout" onclick="logout()">Logout</span>
+
+<h3>Registered Users</h3>
+<table id="userTable">
+<tr><th>Username</th><th>Email</th><th>Phone</th></tr>
+</table>
+
+<h3>Orders</h3>
+<table id="orderTable">
+<tr><th>User Phone</th><th>Service</th><th>Amount</th><th>Status</th><th>Action</th></tr>
+</table>
+
+<div class="popup" id="popup"></div>
+</div>
+
+<script>
+const popup=document.getElementById("popup");
+const showPopup=(msg,error=false)=>{popup.innerText=msg;popup.className="popup show"+(error?" error":"");setTimeout(()=>popup.className="popup",2500);}
+const token=localStorage.getItem("adminToken");
+if(!token) location.href="admin-login.html";
+
+async function loadUsers(){
+  const res=await fetch("http://localhost:3000/api/admin/users",{headers:{Authorization:`Bearer ${token}`}});
+  const users=await res.json();
+  const table=document.getElementById("userTable");
+  table.innerHTML="<tr><th>Username</th><th>Email</th><th>Phone</th></tr>";
+  users.forEach(u=>{table.innerHTML+=`<tr><td>${u.username}</td><td>${u.email}</td><td>${u.phone}</td></tr>`;});
+}
+
+async function loadOrders(){
+  const res=await fetch("http://localhost:3000/api/admin/orders",{headers:{Authorization:`Bearer ${token}`}});
+  const orders=await res.json();
+  const table=document.getElementById("orderTable");
+  table.innerHTML="<tr><th>User Phone</th><th>Service</th><th>Amount</th><th>Status</th><th>Action</th></tr>";
+  orders.forEach((o,i)=>{table.innerHTML+=`<tr><td>${o.phone}</td><td>${o.service}</td><td>${o.amount}</td><td>
+    <select onchange="updateStatus(${i},this.value)">
+      <option value='Pending' ${o.status==='Pending'?'selected':''}>Pending</option>
+      <option value='Completed' ${o.status==='Completed'?'selected':''}>Completed</option>
+      <option value='Cancelled' ${o.status==='Cancelled'?'selected':''}>Cancelled</option>
+    </select></td>
+    <td><button onclick="deleteOrder(${i})">Delete</button></td></tr>`;});
+}
+
+async function updateStatus(i,status){
+  await fetch(`http://localhost:3000/api/admin/orders/${i}`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({status})});
+  showPopup("Status updated");
+  loadOrders();
+}
+
+async function deleteOrder(i){
+  await fetch(`http://localhost:3000/api/admin/orders/${i}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+  showPopup("Order deleted");
+  loadOrders();
+}
+
+function logout(){localStorage.removeItem("adminToken");location.href="admin-login.html";}
+
+loadUsers();
+loadOrders();
+</script>
+
+</body>
+</html>
